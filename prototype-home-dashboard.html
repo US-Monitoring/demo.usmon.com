@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>USMON Pro - Home (post-login dashboard, prototype)</title>
+<style>
+  :root{
+    --canvas:#f4f6f9; --surface:#ffffff; --surface-2:#fafbfc;
+    --ink:#16202e; --muted:#64748b; --faint:#94a3b8;
+    --line:#e5e9f0; --line-strong:#d4dbe6;
+    --primary:#0b6e7a; --primary-dark:#095861; --primary-tint:#e6f3f4; --primary-line:#bfe3e6;
+    --ok:#15803d; --ok-tint:#ecfdf3; --ok-line:#bbf7d0;
+    --warn:#b45309; --warn-tint:#fffbeb; --warn-line:#fde68a;
+    --block:#b91c1c; --block-tint:#fef2f2; --block-line:#fecaca;
+    /* revenue channels */
+    --idr:#4f46c4; --idr-tint:#eef0fd; --idr-line:#d6d8f7; --idr-dark:#3f37a6;
+    --gov:#475569; --gov-tint:#eef1f5; --gov-line:#d3dae3;
+    --hosp:#0369a1; --hosp-tint:#e8f2f9; --hosp-line:#bfe0f0; --hosp-dark:#075985;
+    --park:#9a3412; --park-tint:#fff4ed; --park-line:#fed7aa;
+    --ai:#6d4aff; --ai-tint:#f1ecff; --ai-line:#ddd2ff; --ai-dark:#5a37e0;
+    --hl:#fef9c3; --hl-line:#fde047;
+    --mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --radius:9px; --shadow:0 1px 2px rgba(16,32,46,.04),0 6px 20px rgba(16,32,46,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{transition:none!important;animation:none!important}}
+  body{margin:0;font-family:var(--sans);color:var(--ink);background:var(--canvas);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .mono{font-family:var(--mono);font-feature-settings:"tnum" 1}
+  button{font-family:inherit;cursor:pointer}
+  a{color:var(--primary);text-decoration:none}
+  select,input[type=text],input[type=date]{font-family:inherit}
+
+  /* ---- appbar (reused from ops worklist) ---- */
+  .appbar{display:flex;align-items:center;gap:24px;background:var(--ink);color:#fff;padding:0 20px;height:52px;position:sticky;top:0;z-index:40}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700}
+  .brand .dot{width:22px;height:22px;border-radius:6px;background:linear-gradient(135deg,var(--primary),#1aa3b2);display:grid;place-items:center;font-size:12px}
+  .brand small{font-weight:500;color:#9fb0c0;font-size:11px;display:block;line-height:1;margin-top:2px}
+  .appnav{display:flex;gap:2px;margin-left:8px}
+  .appnav a{color:#c7d2dd;padding:6px 11px;border-radius:7px;font-size:13px}
+  .appnav a:hover{background:rgba(255,255,255,.08);color:#fff}
+  .appnav a.on{background:var(--primary);color:#fff}
+  .appuser{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px;color:#c7d2dd}
+  .appuser .avatar{width:28px;height:28px;border-radius:50%;background:#2a3a4f;display:grid;place-items:center;color:#fff;font-weight:600;font-size:12px}
+
+  .wrap{max-width:1100px;margin:0 auto;padding:22px 18px 60px}
+
+  /* ---- greeting + client switch header ---- */
+  .hero{display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap;margin-bottom:20px}
+  .hero .greet h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.3px}
+  .hero .greet .ctx{margin:4px 0 0;color:var(--muted);font-size:13px}
+  .hero .greet .ctx b{color:var(--ink)}
+  .hero .greet .ctx .role{font-weight:600;color:var(--primary)}
+  .clientpick{margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 13px;min-width:280px}
+  .clientpick label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);font-weight:700;margin-bottom:5px}
+  .clientpick .row{display:flex;align-items:center;gap:8px}
+  .clientpick select{flex:1;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;font-size:13px;font-weight:600;background:#fff;color:var(--ink)}
+  .clientpick select:focus{outline:2px solid var(--primary-tint);border-color:var(--primary)}
+  .clientpick .badge{font-size:10px;font-weight:800;padding:3px 7px;border-radius:5px;background:var(--primary-tint);color:var(--primary-dark);white-space:nowrap}
+  .clientpick .note{margin:7px 0 0;font-size:10.5px;color:var(--faint);line-height:1.4}
+
+  /* ---- section head ---- */
+  .sec-head{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+  .sec-head h2{font-size:14px;margin:0;font-weight:700;letter-spacing:-.1px}
+  .sec-head p{margin:1px 0 0;font-size:12px;color:var(--muted)}
+  .sec-head .grow{margin-left:auto}
+  .btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);padding:7px 12px;border-radius:8px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:.12s}
+  .btn:hover{border-color:var(--faint);background:var(--surface-2)}
+  .btn.sm{padding:4px 9px;font-size:11.5px;border-radius:7px}
+  .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+  .btn.primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
+  .btn.on{background:var(--hl);border-color:var(--hl-line);color:#854d0e}
+
+  /* ---- tile grid ---- */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:900px){.tiles{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.tiles{grid-template-columns:1fr}}
+  .tile{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 15px 12px;display:flex;flex-direction:column;min-height:118px;transition:.12s}
+  .tile:hover{border-color:var(--line-strong)}
+  .tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:var(--radius) 0 0 var(--radius);background:var(--faint)}
+  .tile.idr::before{background:var(--idr)} .tile.warn::before{background:var(--warn)}
+  .tile.block::before{background:var(--block)} .tile.ok::before{background:var(--ok)}
+  .tile.park::before{background:var(--park)} .tile.primary::before{background:var(--primary)}
+  .tile .lbl{font-size:12px;color:var(--muted);font-weight:600;line-height:1.3;padding-right:20px}
+  .tile .num{font-size:28px;font-weight:800;letter-spacing:-.6px;margin-top:6px;line-height:1}
+  .tile.idr .num{color:var(--idr)} .tile.warn .num{color:var(--warn)}
+  .tile.block .num{color:var(--block)} .tile.ok .num{color:var(--ok)}
+  .tile.park .num{color:var(--park)} .tile.primary .num{color:var(--primary)}
+  .tile .sub{font-size:10.5px;color:var(--faint);margin-top:3px}
+  .tile .open{margin-top:auto;padding-top:11px}
+  .tile .open .btn{width:100%;justify-content:center}
+  .tile .rm{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:6px;border:1px solid var(--block-line);background:var(--block-tint);color:var(--block);font-size:13px;font-weight:800;line-height:1;display:none;align-items:center;justify-content:center;padding:0}
+  .tile .rm:hover{background:var(--block);color:#fff;border-color:var(--block)}
+  .tiles.editing .tile{border-style:dashed;border-color:var(--line-strong)}
+  .tiles.editing .tile .rm{display:flex}
+  .tiles.editing .tile .open{opacity:.4;pointer-events:none}
+
+  /* add-tile card */
+  .tile.add{align-items:center;justify-content:center;border-style:dashed;border-color:var(--line-strong);background:var(--surface-2);cursor:pointer;text-align:center;color:var(--muted);font-weight:700;font-size:13px;display:none}
+  .tiles.editing .tile.add{display:flex}
+  .tile.add::before{display:none}
+  .tile.add:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-tint)}
+  .tile.add .plus{font-size:22px;line-height:1;margin-bottom:4px}
+
+  /* add-tile popover menu */
+  .addmenu{position:absolute;z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 12px 34px rgba(16,32,46,.18);padding:6px;min-width:230px;display:none}
+  .addmenu.show{display:block}
+  .addmenu .mh{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);font-weight:700;padding:6px 8px 4px}
+  .addmenu button{display:flex;width:100%;align-items:center;gap:8px;background:none;border:none;text-align:left;padding:7px 8px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--ink)}
+  .addmenu button:hover{background:var(--primary-tint)}
+  .addmenu button .dotc{width:8px;height:8px;border-radius:2px;background:var(--faint);flex:none}
+  .addmenu button:disabled{opacity:.4;cursor:default}
+  .addmenu button:disabled:hover{background:none}
+  .addmenu .empty{padding:10px 8px;font-size:12px;color:var(--faint)}
+
+  .foothint{margin-top:22px;font-size:11.5px;color:var(--faint);border-top:1px solid var(--line);padding-top:14px;line-height:1.5}
+  .foothint b{color:var(--muted)}
+
+  /* ---- toast (reused) ---- */
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13.5px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.3s;display:flex;align-items:center;gap:9px;z-index:60;max-width:520px}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .ic{width:20px;height:20px;border-radius:50%;background:var(--ok);display:grid;place-items:center;font-size:12px;flex:none}
+  .toast.idr .ic{background:var(--idr)}.toast.hosp .ic{background:var(--hosp)}.toast.warn .ic{background:var(--warn)}
+
+  /* ---- role toggle (reused convention: body.role-super gates supervisor content) ---- */
+  .roletoggle{display:flex;align-items:center;gap:7px;background:#0f1824;border:1px solid #233247;border-radius:9px;padding:3px}
+  .roletoggle .rt-lbl{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#7e8ea0;font-weight:700;padding:0 4px 0 6px}
+  .roletoggle .rt-btn{background:none;border:none;color:#c7d2dd;font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:7px}
+  .roletoggle .rt-btn:hover{color:#fff}
+  .roletoggle .rt-btn.on{background:var(--primary);color:#fff}
+
+  /* ---- your default working view (biller-facing, visible to everyone) ---- */
+  .viewpref{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px;display:grid;grid-template-columns:1fr;gap:16px}
+  @media(min-width:760px){.viewpref{grid-template-columns:1.15fr 1fr}}
+  .viewpref .opts{display:flex;flex-direction:column;gap:8px}
+  .viewpref .opt{display:flex;align-items:flex-start;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:var(--surface-2);transition:.12s}
+  .viewpref .opt:hover{border-color:var(--line-strong)}
+  .viewpref .opt input{accent-color:var(--primary);width:16px;height:16px;flex:none;margin-top:1px}
+  .viewpref .opt .ol{display:block;font-weight:600;font-size:13px}
+  .viewpref .opt .od{display:block;font-size:11px;color:var(--faint);margin-top:1px}
+  .viewpref .opt:has(input:checked){border-color:var(--primary);background:var(--primary-tint)}
+  .viewpref .side{display:flex;flex-direction:column;gap:12px}
+  .viewpref .confirm{background:var(--primary-tint);border:1px solid var(--primary-line);border-radius:8px;padding:11px 13px;font-size:13px;font-weight:600;color:var(--primary-dark)}
+  .viewpref .side .btn{width:100%;justify-content:center}
+  .viewpref .helper{margin:0;font-size:11.5px;color:var(--muted);line-height:1.5}
+  .viewpref .helper b{color:var(--ink)}
+
+  /* ---- team default views (SUPERVISOR ONLY - same body.role-super gate) ---- */
+  .team-panel{display:none;margin-top:26px}
+  body.role-super .team-panel{display:block}
+  .team-panel .tp-note{font-size:12.5px;color:var(--muted);margin:0 0 10px}
+  .team-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .team-card table{width:100%;border-collapse:collapse;font-size:13px}
+  .team-card th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);font-weight:700;padding:10px 16px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+  .team-card td{padding:10px 16px;border-bottom:1px solid var(--line)}
+  .team-card tr:last-child td{border-bottom:none}
+  .team-card td.tn{color:var(--muted)}
+  .team-card td.nm{font-weight:600}
+  .team-card select.teamsel{padding:6px 9px;border:1px solid var(--line-strong);border-radius:7px;font-size:12.5px;font-weight:600;background:#fff;color:var(--ink)}
+  .team-card select.teamsel:focus{outline:2px solid var(--primary-tint);border-color:var(--primary)}
+</style>
+</head>
+<body class="role-super">
+
+<!--
+  ============================================================================
+  USMON Pro - HOME / WELCOME dashboard (post-login landing)
+  (client demo, SYNTHETIC data only - no PHI, no real entities)
+  ----------------------------------------------------------------------------
+  60-SECOND PRESENTER PATH:
+    1. "This is the calm landing page after login - greeting up top:
+       Good evening, Dr. Sample Reed · Billing Supervisor, scoped to the
+       active client (Sample Neuro Billing LLC)."
+    2. Top-right "Switch client" - a billing service can own several client
+       companies. Pick "Demo IONM Partners" -> greeting re-scopes and every
+       tile count changes (toast: "Switched to Demo IONM Partners"). Note the
+       line: a single large client just sees one - no switching needed.
+    3. Point at the tiles: "Each tile is a SAVED FILTER the user chose - a
+       one-click entry into the worklist. Counts are live per client."
+    4. Click "Customize" -> tiles show remove (x) and a dashed "+ Add tile"
+       card. Remove one (x), then "+ Add tile" -> pick "Parked / waiting on
+       info" from the menu -> it appears. "The USER defines which filters open
+       from home." Click "Done".
+    5. Click any tile's "Open" -> toast "Opening worklist filtered to: <tile>"
+       - the hand-off into the dense Ongoing worklist (built separately).
+  ============================================================================
+-->
+
+<header class="appbar">
+  <div class="brand"><span class="dot">U</span><div>USMON&nbsp;Pro<small>Insurance Billing</small></div></div>
+  <nav class="appnav">
+    <a href="#" onclick="return t('New Insurance Billing routes new cases - out of scope for this demo')">New Insurance Billing</a>
+    <a href="#" onclick="return t('Ongoing opens the dense follow-up worklist (built separately in this demo)')">Ongoing</a>
+    <a href="#" onclick="return t('Folders - out of scope for this demo')">Folders</a>
+    <a href="#" onclick="return t('Reports - out of scope for this demo')">Reports</a>
+    <a href="#" onclick="return t('Manage - out of scope for this demo')">Manage</a>
+  </nav>
+  <div class="appuser">
+    <div class="roletoggle" role="group" aria-label="View role">
+      <span class="rt-lbl">View</span>
+      <button class="rt-btn" id="rt-biller" onclick="setRole('biller')">Biller</button>
+      <button class="rt-btn on" id="rt-super" onclick="setRole('supervisor')">Supervisor</button>
+    </div>
+    <span id="userName">Dr. Sample Reed · Billing Supervisor</span><span class="avatar" id="avatarTxt">SR</span>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- greeting + switch client -->
+  <div class="hero">
+    <div class="greet">
+      <h1 id="greetLine">Good evening, Dr. Sample Reed</h1>
+      <p class="ctx">Signed in as <span class="role" id="ctxRole">Billing Supervisor</span> · active client <b id="ctxClient">Sample Neuro Billing LLC</b> · <span id="ctxClaims">18,204</span> active claims</p>
+    </div>
+    <div class="clientpick">
+      <label for="clientSel">Switch client</label>
+      <div class="row">
+        <select id="clientSel" onchange="switchClient(this.value)"></select>
+        <span class="badge" id="clientCount">4 clients</span>
+      </div>
+      <p class="note">You manage more than one client company - this re-scopes the whole app. A single large client simply sees one here; no switching needed.</p>
+    </div>
+  </div>
+
+  <!-- tiles section -->
+  <div class="sec-head">
+    <div>
+      <h2>Your worklist views</h2>
+      <p>Saved filters you pinned to home - each opens straight into the Ongoing worklist.</p>
+    </div>
+    <span class="grow"></span>
+    <button class="btn sm" id="custBtn" onclick="toggleCustomize()">Customize</button>
+  </div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <p class="foothint">
+    Counts are <b>synthetic demo data</b> and re-scope to the active client. Tiles are <b>user-configurable</b> - each biller pins the filters they live in.
+    "Open" hands off to the dense <b>Ongoing worklist</b>; this home page stays deliberately calm.
+  </p>
+
+  <!-- ============================================================
+       YOUR DEFAULT WORKING VIEW  (biller-facing - visible to everyone)
+       Land in the layout you prefer every time you open a claim.
+       ============================================================ -->
+  <div class="sec-head" style="margin-top:26px">
+    <div>
+      <h2>Your default working view</h2>
+      <p>Pick the layout you want to land in every time you open a claim - it sticks on this browser.</p>
+    </div>
+  </div>
+
+  <div class="viewpref">
+    <div class="opts" id="viewPrefForm">
+      <label class="opt" for="dv-classic">
+        <input type="radio" name="defview" id="dv-classic" value="classic" onchange="saveDefaultView(this.value)">
+        <span><span class="ol">Classic (legacy layout)</span><span class="od">The legacy USMON grid, tabs and column names - on the new engine</span></span>
+      </label>
+      <label class="opt" for="dv-guided">
+        <input type="radio" name="defview" id="dv-guided" value="guided" onchange="saveDefaultView(this.value)">
+        <span><span class="ol">Guided Flow</span><span class="od">The same claim, one calm step at a time</span></span>
+      </label>
+      <label class="opt" for="dv-familiar">
+        <input type="radio" name="defview" id="dv-familiar" value="familiar" onchange="saveDefaultView(this.value)">
+        <span><span class="ol">Familiar-Modern</span><span class="od">Today's workflow and CMS-1500 layout, modernized on one page</span></span>
+      </label>
+      <label class="opt" for="dv-cockpit">
+        <input type="radio" name="defview" id="dv-cockpit" value="cockpit" onchange="saveDefaultView(this.value)">
+        <span><span class="ol">Smart Cockpit</span><span class="od">Everything on one page with a workflow rail and AI review assist</span></span>
+      </label>
+      <label class="opt" for="dv-dense">
+        <input type="radio" name="defview" id="dv-dense" value="dense" onchange="saveDefaultView(this.value)">
+        <span><span class="ol">Dense Worklist</span><span class="od">The high-volume operational grid, straight to the rows</span></span>
+      </label>
+    </div>
+    <div class="side">
+      <div class="confirm" id="viewPrefConfirm">When you open a claim, you'll land in: Familiar-Modern.</div>
+      <button class="btn primary" onclick="openMyView()">Open a claim in my view</button>
+      <p class="helper">Prefer the old USMON layout? Set <b>Classic</b> and you'll always start there - same data and AI help underneath.</p>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       TEAM DEFAULT VIEWS  (SUPERVISOR ONLY - gated by body.role-super)
+       Billers never see this panel.
+       ============================================================ -->
+  <div class="team-panel" id="teamPanel" aria-label="Team default views">
+    <div class="sec-head">
+      <div>
+        <h2>Team default views</h2>
+        <p>Assign each biller the layout they land in - a supervisor override of the personal setting above.</p>
+      </div>
+    </div>
+    <p class="tp-note">Assign a comfortable default so no one is forced to relearn a screen - they still get every new feature.</p>
+    <div class="team-card">
+      <table>
+        <thead>
+          <tr><th>Biller</th><th>On the team</th><th>Default view</th></tr>
+        </thead>
+        <tbody id="teamRows"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- add-tile popover -->
+<div class="addmenu" id="addMenu">
+  <div class="mh">Add a saved view</div>
+  <div id="addMenuList"></div>
+</div>
+
+<div class="toast" id="toast"><span class="ic" id="toastIc">✓</span><span id="toastMsg"></span></div>
+
+<script>
+/* ---------------- toast ---------------- */
+function toast(m,kind){const el=document.getElementById('toast');el.className='toast'+(kind?' '+kind:'');document.getElementById('toastIc').textContent=(kind==='idr'?'◆':kind==='hosp'?'▣':kind==='warn'?'!':'✓');document.getElementById('toastMsg').textContent=m;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3200);}
+function t(m){toast(m);return false;}
+
+/* ---------------- synthetic clients ---------------- */
+/* Many smaller billing services own/serve more than one client company.
+   Each client re-scopes greeting + per-tile counts. All synthetic. */
+const CLIENTS=[
+  {id:'neuro', name:'Sample Neuro Billing LLC',  claims:'18,204'},
+  {id:'ionm',  name:'Demo IONM Partners',        claims:'9,517'},
+  {id:'mon',   name:'Example Monitoring Group',  claims:'31,880'},
+  {id:'spec',  name:'Specimen Billing Co',       claims:'4,236'}
+];
+
+/* master catalog of available saved-view filters (tile definitions) */
+const CATALOG=[
+  {id:'review',   lbl:'Needs review',          cls:'primary', sub:'flagged by rules / AI'},
+  {id:'ready',    lbl:'Ready to file',         cls:'ok',      sub:'clean claims, no blockers'},
+  {id:'idr',      lbl:'Inside IDR window',     cls:'idr',     sub:'OON dispute clock running'},
+  {id:'deadline', lbl:'At filing deadline',    cls:'block',   sub:'timely-filing ≤ 5 biz days'},
+  {id:'underpaid',lbl:'Underpaid → refile',    cls:'warn',    sub:'paid below expected'},
+  {id:'awaiting', lbl:'Awaiting payment',      cls:'primary', sub:'filed · no ERA posted'},
+  {id:'aged',     lbl:'Aged > 90 days',        cls:'block',   sub:'at collection risk'},
+  {id:'parked',   lbl:'Parked / waiting info', cls:'park',    sub:'held on missing records'}
+];
+
+/* per-client synthetic counts, keyed by catalog id (all made-up) */
+const COUNTS={
+  neuro:{review:142, ready:389, idr:1842, deadline:57,  underpaid:604, awaiting:9207, aged:1319, parked:288},
+  ionm: {review:63,  ready:154, idr:706,  deadline:22,  underpaid:281, awaiting:4102, aged:498,  parked:117},
+  mon:  {review:310, ready:722, idr:3164, deadline:118, underpaid:1187,awaiting:16044,aged:2530, parked:641},
+  spec: {review:28,  ready:71,  idr:243,  deadline:9,   underpaid:96,  awaiting:1880, aged:203,  parked:44}
+};
+
+/* which tiles are pinned to the home page (user-configurable, default set) */
+let pinned=['review','ready','idr','deadline','underpaid','awaiting','aged'];
+let activeClient=CLIENTS[0].id;
+let editing=false;
+
+/* current signed-in identity (re-rendered by role toggle + client switch) */
+let curName='Dr. Sample Reed';
+let curRole='Billing Supervisor';
+
+function fmt(n){return n.toLocaleString('en-US');}
+function catById(id){return CATALOG.find(c=>c.id===id);}
+
+/* ---------------- client switch ---------------- */
+function initClients(){
+  document.getElementById('clientSel').innerHTML=CLIENTS.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
+  document.getElementById('clientCount').textContent=CLIENTS.length+' clients';
+}
+function greeting(){
+  const h=new Date().getHours();
+  return h<12?'Good morning':h<18?'Good afternoon':'Good evening';
+}
+function switchClient(id,silent){
+  activeClient=id;
+  const c=CLIENTS.find(x=>x.id===id);
+  document.getElementById('greetLine').textContent=greeting()+', '+curName;
+  document.getElementById('ctxClient').textContent=c.name;
+  document.getElementById('ctxClaims').textContent=c.claims;
+  document.getElementById('clientSel').value=id;
+  renderTiles();
+  if(!silent)toast('Switched to '+c.name,'idr');
+}
+
+/* ---------------- tiles ---------------- */
+function tileHtml(id){
+  const c=catById(id);const n=COUNTS[activeClient][id];
+  return '<div class="tile '+c.cls+'" data-id="'+id+'">'+
+    '<button class="rm" title="Remove tile" onclick="removeTile(\''+id+'\')">✕</button>'+
+    '<div class="lbl">'+c.lbl+'</div>'+
+    '<div class="num mono">'+fmt(n)+'</div>'+
+    '<div class="sub">'+c.sub+'</div>'+
+    '<div class="open"><button class="btn sm" onclick="openTile(\''+id+'\')">Open →</button></div>'+
+  '</div>';
+}
+function renderTiles(){
+  const el=document.getElementById('tiles');
+  el.innerHTML=pinned.map(tileHtml).join('')+
+    '<div class="tile add" onclick="openAddMenu(event)"><div><div class="plus">+</div>Add tile</div></div>';
+  el.classList.toggle('editing',editing);
+}
+function openTile(id){
+  const c=catById(id);
+  toast('Opening worklist filtered to: '+c.lbl+' ('+fmt(COUNTS[activeClient][id])+')');
+}
+
+/* ---------------- customize / add / remove ---------------- */
+function toggleCustomize(){
+  editing=!editing;
+  const b=document.getElementById('custBtn');
+  b.textContent=editing?'Done':'Customize';
+  b.classList.toggle('on',editing);
+  closeAddMenu();
+  renderTiles();
+  toast(editing?'Customize mode - remove tiles with ✕ or add saved views':'Layout saved');
+}
+function removeTile(id){
+  pinned=pinned.filter(x=>x!==id);
+  renderTiles();
+  toast('Removed "'+catById(id).lbl+'" from home');
+}
+function openAddMenu(ev){
+  ev.stopPropagation();
+  const menu=document.getElementById('addMenu');
+  const list=document.getElementById('addMenuList');
+  const avail=CATALOG.filter(c=>!pinned.includes(c.id));
+  list.innerHTML=avail.length
+    ? avail.map(c=>'<button onclick="addTile(\''+c.id+'\')"><span class="dotc" style="background:var(--'+c.cls+')"></span>'+c.lbl+' <span style="margin-left:auto;color:var(--faint);font-weight:700" class="mono">'+fmt(COUNTS[activeClient][c.id])+'</span></button>').join('')
+    : '<div class="empty">All available views are already pinned.</div>';
+  /* position near the add card */
+  const card=ev.currentTarget.getBoundingClientRect();
+  menu.style.left=Math.max(10,Math.min(card.left,window.innerWidth-250))+'px';
+  menu.style.top=(card.top+window.scrollY+8)+'px';
+  menu.classList.add('show');
+}
+function closeAddMenu(){document.getElementById('addMenu').classList.remove('show');}
+function addTile(id){
+  if(!pinned.includes(id))pinned.push(id);
+  closeAddMenu();
+  renderTiles();
+  toast('Added "'+catById(id).lbl+'" to home');
+}
+document.addEventListener('click',e=>{
+  const menu=document.getElementById('addMenu');
+  if(menu.classList.contains('show') && !menu.contains(e.target) && !e.target.closest('.tile.add'))closeAddMenu();
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAddMenu();});
+
+/* ---------------- role toggle: Biller <-> Supervisor ----------------
+   Reuses the shared demo convention: body.role-super gates supervisor-only
+   content (the Team default views panel). Billers never see it. */
+function setRole(role){
+  const sup=role==='supervisor';
+  document.body.classList.toggle('role-super',sup);
+  document.getElementById('rt-biller').classList.toggle('on',!sup);
+  document.getElementById('rt-super').classList.toggle('on',sup);
+  curName=sup?'Dr. Sample Reed':'Dana Sample';
+  curRole=sup?'Billing Supervisor':'Biller';
+  document.getElementById('greetLine').textContent=greeting()+', '+curName;
+  document.getElementById('userName').textContent=curName+' · '+curRole;
+  document.getElementById('ctxRole').textContent=curRole;
+  document.getElementById('avatarTxt').textContent=sup?'SR':'DS';
+  toast(sup?'Supervisor view - Team default views now visible':'Biller view - your personal settings only');
+}
+
+/* ---------------- your default working view (per-biller, localStorage) ---------------- */
+const VIEWS=[
+  {id:'classic',  label:'Classic (legacy layout)', url:'prototype-classic.html'},
+  {id:'guided',   label:'Guided Flow',             url:'prototype-guided-flow.html'},
+  {id:'familiar', label:'Familiar-Modern',         url:'prototype-familiar-modern.html'},
+  {id:'cockpit',  label:'Smart Cockpit',           url:'prototype-v5-router.html'},
+  {id:'dense',    label:'Dense Worklist',          url:'prototype-ops-worklist.html'}
+];
+const VIEW_KEY='usmon_default_view';
+function viewById(id){return VIEWS.find(v=>v.id===id)||VIEWS[2];}
+function selectedView(){const r=document.querySelector('input[name="defview"]:checked');return r?r.value:'familiar';}
+function updateViewConfirm(){
+  document.getElementById('viewPrefConfirm').textContent=
+    "When you open a claim, you'll land in: "+viewById(selectedView()).label+'.';
+}
+function loadDefaultView(){
+  let v='familiar';
+  try{const s=localStorage.getItem(VIEW_KEY);if(s&&VIEWS.some(x=>x.id===s))v=s;}catch(e){}
+  const r=document.querySelector('input[name="defview"][value="'+v+'"]');
+  if(r)r.checked=true;
+  updateViewConfirm();
+}
+function saveDefaultView(id){
+  try{localStorage.setItem(VIEW_KEY,id);}catch(e){}
+  updateViewConfirm();
+  toast('Default view set to '+viewById(id).label);
+}
+function openMyView(){
+  const v=viewById(selectedView());
+  toast('Opening a claim in '+v.label);
+  window.open(v.url,'_blank');
+}
+
+/* ---------------- team default views (supervisor only; synthetic, demo-only) ---------------- */
+const TEAM=[
+  {name:'Sample, Dana',    tenure:'2 yrs',  def:'familiar'},
+  {name:'Rivera, Priya',   tenure:'4 yrs',  def:'guided'},
+  {name:'Okafor, Ben',     tenure:'1 yr',   def:'cockpit'},
+  {name:'Nguyen, Tran',    tenure:'7 yrs',  def:'dense'},
+  {name:'Delgado, Rosa',   tenure:'13 yrs', def:'classic'},
+  {name:'Whitfield, Gene', tenure:'17 yrs', def:'classic'}
+];
+function renderTeam(){
+  document.getElementById('teamRows').innerHTML=TEAM.map(function(m,i){
+    const opts=VIEWS.map(function(v){
+      return '<option value="'+v.id+'"'+(v.id===m.def?' selected':'')+'>'+v.label+'</option>';
+    }).join('');
+    return '<tr><td class="nm">'+m.name+'</td><td class="tn">'+m.tenure+'</td>'+
+      '<td><select class="teamsel" onchange="teamSet('+i+',this.value)">'+opts+'</select></td></tr>';
+  }).join('');
+}
+function teamSet(i,val){
+  TEAM[i].def=val;
+  toast('Saved default view for '+TEAM[i].name);
+}
+
+/* ---------------- init ---------------- */
+initClients();
+switchClient(activeClient,true);
+loadDefaultView();
+renderTeam();
+</script>
+<script src="demo-nav.js"></script>
+</body>
+</html>
