@@ -273,6 +273,15 @@
   .elig-tbl .elig-pick label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
   .elig-run{font-size:13px;color:var(--ai-dark);font-weight:600;padding:14px 4px}
   .elig-hint{font-size:12px;color:var(--muted)}
+  .elig-banner{grid-column:1/-1;border:1px solid var(--ok-line);background:var(--ok-tint);color:var(--ok);border-radius:8px;padding:9px 13px;font-size:12.5px;font-weight:700}
+  .elig-banner[hidden]{display:none}
+  .elig-banner .elig-upd{display:block;margin-top:3px;font-weight:600;color:var(--ink,#1f2937)}
+  .ben dd .elig-chip{display:inline-block;margin-top:3px;font-family:var(--sans,inherit);font-size:10.5px;font-weight:800;border-radius:5px;padding:1px 6px}
+  .ben dd .elig-chip.upd{background:var(--ok-tint);color:var(--ok);border:1px solid var(--ok-line)}
+  .ben dd .elig-chip.kept{background:#f3f4f6;color:var(--muted);border:1px solid var(--line)}
+  .ben dd .elig-was{display:block;font-family:var(--sans,inherit);font-size:11px;font-weight:500;color:var(--muted)}
+  @keyframes eligflash{from{background:#bbf7d0}to{background:transparent}}
+  .ben dd.elig-flash{animation:eligflash 1.6s ease-out;border-radius:4px}
 
   /* per-stage "AI fields to confirm: N" indicator */
   .aibar{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--ai-tint),#f7f4ff);border:1px solid var(--ai-line);border-radius:9px;padding:11px 14px;margin:4px 0 16px;font-size:13px;color:var(--ai-dark);font-weight:600}
@@ -678,10 +687,11 @@
           <div class="f"><label>Network</label><div class="val" style="color:var(--idr);font-weight:600">Out-of-network</div></div>
         </div>
         <div class="benefit-cols">
+          <div class="elig-banner" id="elig-result" role="status" hidden></div>
           <div class="ben innet"><h3>In-network (not applicable)</h3>
             <dl><dt>Status</dt><dd>No in-net contract</dd><dt>Reason</dt><dd>OON by design</dd></dl></div>
           <div class="ben oonet"><h3>◆ Out-of-network - NSA applies</h3>
-            <dl><dt>OON benefits</dt><dd>Active</dd><dt>QPA on file</dt><dd>~$7,697</dd><dt>Timely filing</dt><dd>90 days</dd><dt>NSA protection</dt><dd>Yes · IDR-eligible</dd></dl></div>
+            <dl><dt>Plan name</dt><dd id="ben-plan">Choice PPO</dd><dt>Deductible remaining</dt><dd id="ben-ded">$1,200</dd><dt>Out of pocket remaining</dt><dd id="ben-oop">$3,800</dd><dt>OON benefits</dt><dd>Active</dd><dt>QPA on file</dt><dd>~$7,697</dd><dt>Timely filing</dt><dd>90 days</dd><dt>NSA protection</dt><dd>Yes · IDR-eligible</dd></dl></div>
         </div>
 
         <div class="fgrid" style="margin-top:16px">
@@ -824,7 +834,7 @@
         <div class="blocktitle">Confirmed</div>
         <div class="checklist">
           <div class="chk"><span class="ci">✓</span><div class="ck-txt"><b>Case pulled</b><span>From case #1000001 · 95% preloaded</span></div><div class="ck-go"><button onclick="stepClick(1)">View</button></div></div>
-          <div class="chk"><span class="ci">✓</span><div class="ck-txt"><b>Patient &amp; insurance verified</b><span>OON benefits active · QPA ~$7,697 · timely filing 90 days</span></div><div class="ck-go"><button onclick="stepClick(2)">View</button></div></div>
+          <div class="chk"><span class="ci">✓</span><div class="ck-txt"><b>Patient &amp; insurance verified</b><span id="reviewVerify">OON benefits active · QPA ~$7,697 · timely filing 90 days</span></div><div class="ck-go"><button onclick="stepClick(2)">View</button></div></div>
           <div class="chk"><span class="ci">✓</span><div class="ck-txt"><b>Coding &amp; diagnosis</b><span id="reviewCode">Principal Dx, derived units, and rendering provider all confirmed</span></div><div class="ck-go"><button onclick="stepClick(3)">View</button></div></div>
         </div>
 
@@ -1214,6 +1224,7 @@
     });
     const was=document.getElementById('aivalwas-vob'); was.style.display='none'; was.textContent='';
     closeElig();
+    eligResetResult();
     // reset coding-stage side effects
     document.getElementById('dxLead').innerHTML='';
     document.getElementById('line4units').textContent='6';
@@ -1380,6 +1391,43 @@
     const o=eligOpener; eligOpener=null;
     if(o&&document.body.contains(o)&&typeof o.focus==='function')o.focus();
   }
+  const ELIG_DD={'Plan name':{id:'ben-plan',base:'Choice PPO'},'Deductible remaining':{id:'ben-ded',base:'$1,200'},'Out of pocket remaining':{id:'ben-oop',base:'$3,800'}};
+  const REVIEW_BASE='OON benefits active · QPA ~$7,697 · timely filing 90 days';
+  function eligResetResult(){
+    Object.keys(ELIG_DD).forEach(k=>{
+      const d=document.getElementById(ELIG_DD[k].id); if(!d)return;
+      d.textContent=ELIG_DD[k].base; d.classList.remove('elig-flash');
+    });
+    const b=document.getElementById('elig-result'); b.hidden=true; b.textContent='';
+    const rv=document.getElementById('reviewVerify'); if(rv)rv.textContent=REVIEW_BASE;
+  }
+  function eligApplyResult(accepted,kept){
+    eligResetResult();
+    accepted.forEach(r=>{
+      const m=ELIG_DD[r.k]; if(!m)return;
+      const d=document.getElementById(m.id);
+      d.textContent=r.now;
+      const c=document.createElement('span'); c.className='elig-chip upd'; c.textContent='Updated today (demo)';
+      const w=document.createElement('span'); w.className='elig-was'; w.textContent='was '+r.old;
+      d.appendChild(document.createElement('br')); d.appendChild(c); d.appendChild(w);
+      void d.offsetWidth; d.classList.add('elig-flash');
+    });
+    kept.forEach(r=>{
+      const m=ELIG_DD[r.k]; if(!m)return;
+      const d=document.getElementById(m.id);
+      const c=document.createElement('span'); c.className='elig-chip kept'; c.textContent='Kept, offered '+r.now+' (demo)';
+      d.appendChild(document.createElement('br')); d.appendChild(c);
+    });
+    const b=document.getElementById('elig-result');
+    b.textContent='Eligibility check saved (demo): '+accepted.length+' updated, '+kept.length+' kept, checked today';
+    const u=document.createElement('span'); u.className='elig-upd';
+    u.textContent=accepted.length?('Updated: '+accepted.map(r=>r.k).join(', ')):'Updated: nothing, all old values kept';
+    b.appendChild(u); b.hidden=false;
+    const ded=accepted.find(r=>r.k==='Deductible remaining'), oop=accepted.find(r=>r.k==='Out of pocket remaining');
+    const rv=document.getElementById('reviewVerify');
+    if(rv&&(ded||oop)) rv.textContent=REVIEW_BASE+(ded?' · deductible remaining '+ded.now:'')+(oop?' · out of pocket remaining '+oop.now:'');
+    bumpAudit();
+  }
   function saveElig(){
     if(eligPicked()<eligChangedCount())return;
     const accepted=[], kept=[];
@@ -1397,6 +1445,7 @@
     eligOpener=null;   // the button is replaced by the confirmed state; nothing to return to
     closeElig();
     confirmAI('vob');
+    eligApplyResult(accepted,kept);
     const f=document.getElementById('aif-vob'); if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'});
   }
   document.getElementById('eligBack').addEventListener('keydown',(e)=>{
