@@ -260,6 +260,19 @@
   .aif.overridden .aival{border-color:var(--warn-line)}
   .aif .aif-done{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--ok)}
   .aif .aif-done.ovr{color:var(--warn)}
+  .aif .aival-was{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.4}
+  .aif .elig-cost{font-size:11.5px;color:var(--ai-dark);font-weight:600}
+  .elig-modal{max-width:760px}
+  .elig-tbl{width:100%;border-collapse:collapse;font-size:13px}
+  .elig-tbl th{text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line)}
+  .elig-tbl td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .elig-tbl tr.chg td{background:var(--warn-tint)}
+  .elig-tbl .elig-lbl{font-weight:700}
+  .elig-tbl .elig-flag{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:800;color:var(--warn);background:#fff;border:1px solid var(--warn-line);border-radius:5px;padding:1px 6px}
+  .elig-tbl .elig-pick{display:flex;gap:12px;margin-top:7px;font-size:12px;font-weight:600}
+  .elig-tbl .elig-pick label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+  .elig-run{font-size:13px;color:var(--ai-dark);font-weight:600;padding:14px 4px}
+  .elig-hint{font-size:12px;color:var(--muted)}
 
   /* per-stage "AI fields to confirm: N" indicator */
   .aibar{display:flex;align-items:center;gap:10px;background:linear-gradient(180deg,var(--ai-tint),#f7f4ff);border:1px solid var(--ai-line);border-radius:9px;padding:11px 14px;margin:4px 0 16px;font-size:13px;color:var(--ai-dark);font-weight:600}
@@ -676,10 +689,13 @@
             <div class="aif" id="aif-vob">
               <div class="aif-top"><span class="aichip">✦ AI</span><span class="aif-src">flagged by AI · via USMON MCP</span></div>
               <div class="aival" id="aival-vob">⚠ Stale - last verified 10/14/2025 (VOB older than payer re-verify window at filing)</div>
+              <div class="aival-was" id="aivalwas-vob" style="display:none"></div>
               <div class="aif-why">AI flag: benefits on file exceed United Healthcare's re-verification window for OON claims. Recommend re-checking eligibility &amp; OON benefits before filing so the QPA on record is current.</div>
               <div class="aif-act" id="aifact-vob">
                 <button class="btn ai sm" onclick="confirmAI('vob')">✓ Confirm - re-verified</button>
                 <button class="btn sm" onclick="overrideAI('vob')">Edit / Override</button>
+                <button class="btn sm" id="eligBtn" onclick="openElig()" aria-haspopup="dialog">Check eligibility now</button>
+                <span class="elig-cost">Cost per check: to be set</span>
               </div>
             </div>
           </div>
@@ -1103,6 +1119,25 @@
   </div>
 </div>
 
+<div class="modal-back" id="eligBack" onclick="if(event.target===this)closeElig()">
+  <div class="modal elig-modal" role="dialog" aria-modal="true" aria-labelledby="eligTitle">
+    <div class="modal-head">
+      <span class="m-tag">Demo</span>
+      <h2 id="eligTitle">Check eligibility - Testcase, Alice</h2>
+      <button class="mx" id="eligX" onclick="closeElig()" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-note"><span class="sp">✦</span><span>Demo data. Made up, test mode. No real payer was contacted.</span></p>
+      <div id="eligBody" aria-live="polite"></div>
+    </div>
+    <div class="modal-foot">
+      <span class="elig-hint" id="eligHint" style="margin-right:auto"></span>
+      <button class="btn" onclick="closeElig()">Cancel</button>
+      <button class="btn primary" id="eligSave" onclick="saveElig()" disabled>Save choices</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"><span class="ic">✓</span><span id="toastMsg"></span></div>
 
 <script>
@@ -1158,6 +1193,10 @@
   function stagePending(n){return stageFields(n).filter(k=>aiState[k]==='pending');}
   function leadPart(s){return s.split(' - ')[0].trim();}
   function aiActionsHTML(key){
+    if(key==='vob') return '<button class="btn ai sm" onclick="confirmAI(\'vob\')">'+AI_INIT.vob.confirm+'</button>'+
+           '<button class="btn sm" onclick="overrideAI(\'vob\')">Edit / Override</button>'+
+           '<button class="btn sm" id="eligBtn" onclick="openElig()" aria-haspopup="dialog">Check eligibility now</button>'+
+           '<span class="elig-cost">Cost per check: to be set</span>';
     return '<button class="btn ai sm" onclick="confirmAI(\''+key+'\')">'+AI_INIT[key].confirm+'</button>'+
            '<button class="btn sm" onclick="overrideAI(\''+key+'\')">Edit / Override</button>';
   }
@@ -1173,6 +1212,8 @@
       document.getElementById('aival-'+k).textContent=AI_INIT[k].val;
       document.getElementById('aifact-'+k).innerHTML=aiActionsHTML(k);
     });
+    const was=document.getElementById('aivalwas-vob'); was.style.display='none'; was.textContent='';
+    closeElig();
     // reset coding-stage side effects
     document.getElementById('dxLead').innerHTML='';
     document.getElementById('line4units').textContent='6';
@@ -1284,6 +1325,90 @@
   function cancelOverride(key){
     document.getElementById('aifact-'+key).innerHTML=aiActionsHTML(key);
   }
+
+  /* ---------- Check eligibility now (demo only, no network) ---------- */
+  const ELIG_ROWS=[
+    {k:'Coverage active',old:'Active',now:'Active'},
+    {k:'Plan name',old:'Choice PPO',now:'Choice PPO Plus'},
+    {k:'Network status',old:'Out-of-network',now:'Out-of-network'},
+    {k:'Deductible remaining',old:'$1,200',now:'$450'},
+    {k:'Out of pocket remaining',old:'$3,800',now:'$2,950'},
+    {k:'Prior authorization',old:'Not required',now:'Not required'}
+  ];
+  let eligOpener=null, eligTimer=null;
+  function eligEsc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+  function eligChangedCount(){return ELIG_ROWS.filter(r=>r.old!==r.now).length;}
+  function eligPicked(){return ELIG_ROWS.filter((r,i)=>r.old!==r.now&&document.querySelector('input[name="elig-r'+i+'"]:checked')).length;}
+  function eligUpdateSave(){
+    const need=eligChangedCount(), got=eligPicked();
+    document.getElementById('eligSave').disabled=(got<need);
+    document.getElementById('eligHint').textContent=got<need?('Choose for each changed row ('+got+' of '+need+' chosen)'):'All changed rows chosen';
+  }
+  function openElig(){
+    if(aiState.vob!=='pending')return;
+    eligOpener=document.activeElement;
+    const back=document.getElementById('eligBack');
+    back.classList.add('show'); document.body.style.overflow='hidden';
+    document.getElementById('eligBody').innerHTML='<div class="elig-run">Checking eligibility (demo, no network)...</div>';
+    document.getElementById('eligSave').disabled=true;
+    document.getElementById('eligHint').textContent='';
+    document.getElementById('eligX').focus();
+    clearTimeout(eligTimer);
+    eligTimer=setTimeout(renderElig,900);
+  }
+  function renderElig(){
+    let h='<table class="elig-tbl"><thead><tr><th>Item</th><th>On file</th><th>Fresh result</th></tr></thead><tbody>';
+    ELIG_ROWS.forEach((r,i)=>{
+      const ch=r.old!==r.now;
+      h+='<tr'+(ch?' class="chg"':'')+'><td class="elig-lbl">'+eligEsc(r.k)+(ch?'<span class="elig-flag">Changed</span>':'')+'</td>'+
+         '<td>'+eligEsc(r.old)+'</td><td>'+eligEsc(r.now);
+      if(ch) h+='<div class="elig-pick" role="radiogroup" aria-label="'+eligEsc(r.k)+'">'+
+         '<label><input type="radio" name="elig-r'+i+'" value="new"> Accept new</label>'+
+         '<label><input type="radio" name="elig-r'+i+'" value="old"> Keep old</label></div>';
+      h+='</td></tr>';
+    });
+    h+='</tbody></table>';
+    document.getElementById('eligBody').innerHTML=h;
+    document.querySelectorAll('#eligBody input[type=radio]').forEach(el=>el.addEventListener('change',eligUpdateSave));
+    eligUpdateSave();
+  }
+  function closeElig(){
+    clearTimeout(eligTimer);
+    const back=document.getElementById('eligBack');
+    if(!back.classList.contains('show'))return;
+    back.classList.remove('show'); document.body.style.overflow='';
+    const o=eligOpener; eligOpener=null;
+    if(o&&document.body.contains(o)&&typeof o.focus==='function')o.focus();
+  }
+  function saveElig(){
+    if(eligPicked()<eligChangedCount())return;
+    const accepted=[], kept=[];
+    ELIG_ROWS.forEach((r,i)=>{
+      if(r.old===r.now)return;
+      const c=document.querySelector('input[name="elig-r'+i+'"]:checked');
+      (c&&c.value==='new'?accepted:kept).push(r);
+    });
+    document.getElementById('aival-vob').textContent='Verified today (demo), '+accepted.length+' changed, '+kept.length+' kept';
+    const was=document.getElementById('aivalwas-vob');
+    was.textContent=accepted.length
+      ? 'was: '+accepted.map(r=>r.k+' '+r.old).join(' · ')
+      : 'was: no values replaced (all old values kept)';
+    was.style.display='';
+    eligOpener=null;   // the button is replaced by the confirmed state; nothing to return to
+    closeElig();
+    confirmAI('vob');
+    const f=document.getElementById('aif-vob'); if(f&&f.scrollIntoView)f.scrollIntoView({block:'center'});
+  }
+  document.getElementById('eligBack').addEventListener('keydown',(e)=>{
+    if(e.key==='Escape'){e.preventDefault();closeElig();return;}
+    if(e.key!=='Tab')return;
+    const nodes=Array.from(document.querySelectorAll('#eligBack button:not([disabled]), #eligBack input:not([disabled])')).filter(n=>n.offsetParent!==null||n===document.activeElement);
+    if(!nodes.length)return;
+    const first=nodes[0], last=nodes[nodes.length-1], a=document.activeElement;
+    if(!document.querySelector('#eligBack .modal').contains(a)){e.preventDefault();first.focus();}
+    else if(e.shiftKey&&a===first){e.preventDefault();last.focus();}
+    else if(!e.shiftKey&&a===last){e.preventDefault();first.focus();}
+  });
 
   /* per-stage AI indicator + continue-gate */
   function updateAIStage(n){
